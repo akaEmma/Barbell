@@ -1,0 +1,167 @@
+---
+title: "Classifying Barbell Lifting Style Using HAR Data"
+author: "Sheila Braun"
+date: "August 7, 2018"
+output: 
+  html_document: 
+    highlight: pygments
+    theme: cerulean
+keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(decimal = 3, scipen = 9999)
+knitr::opts_chunk$set(
+        fig.path = "images/")
+```
+
+##Introduction to the Project##
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell for 6 participants who were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+##Data Source##
+
+The data for this project have been generously made public by **Human Activity Recognition**: Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. **Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements**. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6. 
+
+Their website is http://groupware.les.inf.puc-rio.br/har.
+
+##Goal##
+
+Predict the manner in which the participants did the exercise. The target is the "classe" variable. 
+
+Use 20 different test cases.
+
+Predict with any or all the other variables.
+
+##Data Preparation##
+
+Load libraries, load data, drop useless variables, 
+
+```{r data_prep}
+suppressPackageStartupMessages(library(caret)) 
+suppressPackageStartupMessages(library(doParallel)) 
+suppressPackageStartupMessages(library(gbm))       
+suppressPackageStartupMessages(library(knitr)) 
+suppressPackageStartupMessages(library(rpart))
+suppressPackageStartupMessages(library(rattle)) 
+suppressPackageStartupMessages(library(randomForest)) 
+suppressPackageStartupMessages(library(tidyverse))
+
+training <- suppressMessages(read_csv("pml-training.csv"))
+#Parsing failures: they look like notes at the end of the sheet. They're harmless.
+
+testing <- suppressMessages(read_csv("pml-testing.csv"))
+dim(training); dim(testing)
+
+#Keep only variables without missing values
+training <- training[, (colSums(is.na(training)) == 0)]
+testing <- testing[, (colSums(is.na(testing)) == 0)]
+
+#eliminate more useless columns
+training <- training %>% 
+        dplyr::select(-X1, -user_name, 
+                      -raw_timestamp_part_1,
+                      -raw_timestamp_part_2,
+                      -cvtd_timestamp,
+                      -new_window,
+                      -num_window)
+testing <- testing %>%
+        dplyr::select(-X1, -user_name, 
+                      -raw_timestamp_part_1,
+                      -raw_timestamp_part_2,
+                      -cvtd_timestamp,
+                      -new_window,
+                      -num_window)
+
+dim(training); dim(testing)
+```
+Now we have `r dim(training)[2]` variables instead of 160. However, the training set is still huge (`r nrow(training)` rows) while the testing set is small (`r nrow(testing)` rows). We can use 30% of the training data to create a validation set.
+
+```{r validation}
+set.seed(9699)
+inTrain <- createDataPartition(y = training$classe, p = 0.7, list = FALSE)
+training <- training[inTrain, ]
+validation <- training[-inTrain, ]
+table(training$classe); table(validation$classe)
+```
+
+##Build the Model##
+
+I think random forest performs exceptionally well, generally, so I decided to keep it simple and not bother about the running time. I save the random forest fit to disk because I don't want to take all that time more than once. 
+
+When running this code chunk, be sure to uncomment the training line if it's never been run before. Otherwise, just load the fit from the .rds file. 
+
+```{r buildModel}
+library(plyr)
+#train a random forest model
+
+# RUN THIS LINE IF THE MODEL HASN'T BEEN TRAINED: (and take a break)
+# fit <- train(classe ~ ., data = training, method = "rf")
+
+#              OR
+
+# RUN THIS LINE IF THE MODEL HAS BEEN TRAINED:
+fit <- readRDS(file = "rf_fit.rds")
+
+#save the fitted model (if necessary)
+#saveRDS(fit,file = "rf_fit.rds")
+
+#plot the important variables in the fit
+
+dotPlot(varImp(fit))
+```
+
+The dot plot is interesting. It looks like a single variable, `roll_belt`, could explain all the variance. 
+
+
+##Cross-validation##
+
+Cross-validating the fit against validation set, we get a 100% accuracey rate. 
+
+```{r cross_validate}
+x_validate <- predict(fit, validation) #use the new model and validation data
+table(x_validate, validation$classe) #check the accuracy
+```
+
+
+##Expected Outcome of Sample Error##
+
+I expect that the sample error rate will be very low (perhaps 0), first because there was so much data for training, and second because the validation test was 100% accurate. 
+
+```{r test}
+testing$classe <- predict(fit, testing)
+table(testing$classe)
+```
+
+##Justification for Choices Made##
+
+I decided that training using random forests without using any other techniques would probably work because (a) this version of the random forest method in caret has been performing quite well in other studies, and (b) there is so much data that almost any valid model should give solid prediction results. In short, I traded running time for complicated code and went with simple but inefficient. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\O
+
