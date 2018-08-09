@@ -145,7 +145,7 @@ table(training$classe); table(validation$classe)
 
 ##Build the Model##
 
-I think random forest performs exceptionally well, generally, so I decided to keep it simple and not bother about the running time. I save the random forest fit to disk because I don't want to take all that time more than once. 
+Random forests is excellent for classification. A random forest is group (a large group) of decision trees that output the class that is the mode of the classes of the individual trees. I think random forest performs exceptionally well, generally, so I decided to keep it simple and not bother about the running time. I save the random forest fit to disk because I don't want to take all that time more than once. 
 
 When running this code chunk, be sure to uncomment the training line if it's never been run before. Otherwise, just load the fit from the .rds file. 
 
